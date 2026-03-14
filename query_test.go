@@ -9,11 +9,9 @@ import (
 
 func TestShallow(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.Shallow(true)
 	fb.Value("")
@@ -32,11 +30,9 @@ func TestShallow(t *testing.T) {
 
 func TestOrderBy(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.OrderBy("user_id").Value("")
 	require.Len(t, server.receivedReqs, 1)
@@ -47,11 +43,9 @@ func TestOrderBy(t *testing.T) {
 
 func TestEqualTo(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.EqualTo("user_id").Value("")
 	require.Len(t, server.receivedReqs, 1)
@@ -62,11 +56,9 @@ func TestEqualTo(t *testing.T) {
 
 func TestEqualToValue(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.EqualToValue(2).Value("")
 	fb.EqualToValue("2").Value("")
@@ -90,11 +82,9 @@ func TestEqualToValue(t *testing.T) {
 
 func TestLimitToFirst(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.LimitToFirst(2).Value("")
 	require.Len(t, server.receivedReqs, 1)
@@ -105,11 +95,9 @@ func TestLimitToFirst(t *testing.T) {
 
 func TestLimitToLast(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.LimitToLast(2).Value("")
 	require.Len(t, server.receivedReqs, 1)
@@ -120,11 +108,9 @@ func TestLimitToLast(t *testing.T) {
 
 func TestStartAt(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.StartAt("3").Value("")
 	fb.StartAt("foo").Value("")
@@ -139,11 +125,9 @@ func TestStartAt(t *testing.T) {
 
 func TestStartAtValue(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.StartAtValue(3).Value("")
 	fb.StartAtValue("3").Value("")
@@ -166,11 +150,9 @@ func TestStartAtValue(t *testing.T) {
 
 func TestEndAt(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.EndAt("4").Value("")
 	fb.EndAt("theend").Value("")
@@ -185,11 +167,9 @@ func TestEndAt(t *testing.T) {
 
 func TestEndAtValue(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.EndAtValue(4).Value("")
 	fb.EndAtValue(3.14).Value("")
@@ -212,11 +192,9 @@ func TestEndAtValue(t *testing.T) {
 
 func TestIncludePriority(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.IncludePriority(true)
 	fb.Value("")
@@ -235,11 +213,9 @@ func TestIncludePriority(t *testing.T) {
 
 func TestQueryMultipleParams(t *testing.T) {
 	t.Parallel()
-	var (
-		server = newTestServer("")
-		fb     = New(server.URL, nil)
-	)
+	server := newTestServer("")
 	defer server.Close()
+	fb := mustNew(t, server.URL)
 
 	fb.OrderBy("user_id").StartAt("7").Value("")
 	require.Len(t, server.receivedReqs, 1)

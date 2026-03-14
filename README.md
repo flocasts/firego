@@ -23,13 +23,7 @@ import "github.com/flocasts/firego"
 Create a new firego reference
 
 ```go
-f := firego.New("https://my-firebase-app.firebaseIO.com", nil)
-```
-
-with existing http client
-
-```go
-f := firego.New("https://my-firebase-app.firebaseIO.com", client)
+f, err := firego.New("https://my-firebase-app.firebaseIO.com")
 ```
 
 ### Request Timeouts
@@ -44,30 +38,43 @@ firego.TimeoutDuration = time.Minute
 
 ### Authentication
 
-You can authenticate with your `service_account.json` file by using the
-`golang.org/x/oauth2` package
+Firego uses Google OAuth2 credentials via `google.golang.org/api/option`. The
+recommended approach is to use a service account:
 
 ```go
-d, err := os.ReadFile("our_service_account.json")
-if err != nil {
-    return nil, err
-}
+import "google.golang.org/api/option"
 
-conf, err := google.JWTConfigFromJSON(d, "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/firebase.database")
-if err != nil {
-    return nil, err
-}
-
-fb := firego.New("https://you.firebaseio.com", conf.Client(oauth2.NoContext))
-// use the authenticated fb instance
+fb, err := firego.New("https://your-app.firebaseio.com",
+    option.WithCredentialsFile("service_account.json"),
+)
 ```
 
-### Legacy Tokens
+You can also use Application Default Credentials (auto-discovered from
+the `GOOGLE_APPLICATION_CREDENTIALS` environment variable):
 
 ```go
-f.Auth("some-token-that-was-created-for-me")
-f.Unauth()
+import (
+    "golang.org/x/oauth2/google"
+    "google.golang.org/api/option"
+)
+
+ts, err := google.DefaultTokenSource(ctx,
+    "https://www.googleapis.com/auth/firebase.database",
+    "https://www.googleapis.com/auth/userinfo.email",
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+fb, err := firego.New("https://your-app.firebaseio.com",
+    option.WithTokenSource(ts),
+)
+```
+
+Or use the convenience helper with any `oauth2.TokenSource`:
+
+```go
+fb, err := firego.NewWithTokenSource("https://your-app.firebaseio.com", ts)
 ```
 
 ### Get Value
@@ -158,7 +165,7 @@ You can use a reference to save or read data from a specified reference
 
 ```go
 userID := "bar"
-usersRef,err := f.Ref("users/"+userID)
+usersRef, err := f.Ref("users/"+userID)
 if err != nil {
   log.Fatal(err)
 }

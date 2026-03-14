@@ -69,7 +69,7 @@ func TestChildAddedReconnect(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fb = New(server.URL, nil)
+	fb = mustNew(t, server.URL)
 	fb.watchHeartbeat = 50 * time.Millisecond
 
 	addNotifications := make(chan Event)
@@ -110,7 +110,7 @@ func TestChildAdded(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 
 	// set some existing values that should come down
 	server.Set("something", true)
@@ -210,7 +210,7 @@ func TestChildChanged(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 
 	// set some existing values that should come down
 	server.Set("something", true)
@@ -300,7 +300,7 @@ func TestChildRemoved(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil).Child("foo")
+	fb := mustNew(t, server.URL).Child("foo")
 
 	// set some existing values that should come down
 	server.Set("foo/something", true)
@@ -389,7 +389,7 @@ func TestRemoveEventFunc(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	// use this to sync up between different events
 	allNotifications := make(chan Event)
 	err := fb.Watch(allNotifications)

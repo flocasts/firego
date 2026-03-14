@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -43,65 +43,6 @@ func TestClose(t *testing.T) {
 	_, err := http.Get(ft.URL)
 	assert.Error(t, err)
 	assert.IsType(t, (*url.Error)(nil), err)
-}
-
-func TestValidJWT(t *testing.T) {
-	for _, test := range []struct {
-		name     string
-		jwtToken string
-		pass     bool
-	}{
-		// All tokens were generated using http://jwt.io/ with the secret "foo"
-		{
-			name:     "valid token",
-			jwtToken: "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ2IjowLCJkIjp7InVpZCI6IjEifSwiaWF0IjoxNDM3MTM5NTM5fQ.G7j81dhdMrJquGcy8bfKmOZOizzFBYRUMBK4CQIzX_E",
-			pass:     true,
-		},
-		{
-			name:     "valid token with exp",
-			jwtToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2IjowLCJkIjp7InVpZCI6IjEifSwiZXhwIjo5OTk5OTk5OTk5LCJpYXQiOjE0MzcxMzk1Mzl9.itryN7-cE-MDYi7I9hSFuey-AOVLSipPnZIxCGR0nOg",
-			pass:     true,
-		},
-		{
-			name:     "token with bad alg",
-			jwtToken: "eyJhbGciOiJIUyIsInR5cCI6IkpXVCJ9.eyJ2IjowLCJkIjp7InVpZCI6IjEifSwiaWF0IjoxNDM3MTM5NTM5fQ.sacjjt7nrdhP3Yrp0wY8SSwPXpjhs4JMhH8s2PDrIh8",
-			pass:     false,
-		},
-		{
-			name:     "token with invalid typ",
-			jwtToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXd3dUIn0.eyJ2IjowLCJkIjp7InVpZCI6IjEifSwiaWF0IjoxNDM3MTM5NTM5fQ._zpaFuWygUnsqAiws3B_l2xRjJPqo3SWm1Q65DOsNao",
-			pass:     false,
-		},
-		{
-			name:     "token expired token",
-			jwtToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2IjowLCJkIjp7InVpZCI6IjEifSwiZXhwIjoxNDM3MTM5NTM5LCJpYXQiOjE0MzcxMzk1Mzl9.FvxBGJKk32rGPv_VzJdJHMtz80_xHqO5Iccl2DkyOQs",
-			pass:     false,
-		},
-		{
-			name:     "token with invalid exp",
-			jwtToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2IjowLCJkIjp7InVpZCI6IjEifSwiZXhwIjoiOTk5OTk5OTk5OSIsImlhdCI6MTQzNzEzOTUzOX0._wISBo2CPpcYa6RMkbnKH5T4BNEMtsHlko6JEYcAEOM",
-			pass:     false,
-		},
-		{
-			name:     "token missing claim['data']",
-			jwtToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2IjowLCJpYXQiOjE0MzcxMzk1Mzl9.ihZ5BNsDbRIQA9ORgRBrDPCK-FBKlD2w32d0mSOYi6M",
-			pass:     false,
-		},
-		{
-			name:     "token missing data['uid']",
-			jwtToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2IjowLCJkIjp7fSwiaWF0IjoxNDM3MTM5NTM5fQ.ZcwtxTBdy1QWt6E9vShknDpx5gI2yIJxgy_taY9Yl-g",
-			pass:     false,
-		},
-		{
-			name:     "token invalid signature",
-			jwtToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ2IjowLCJpYXQiOjE0MzcxMzk1Mzl9.oQuNcDoQ88EKTFOauENfhozDUlHX7JnRB4S-xfkyoP0",
-			pass:     false,
-		},
-	} {
-		ft := New()
-		ft.Secret = "foo"
-		assert.Equal(t, test.pass, ft.validJWT(test.jwtToken), test.name)
-	}
 }
 
 func TestServeHTTP(t *testing.T) {
@@ -178,8 +119,9 @@ func TestServeHTTPAuth(t *testing.T) {
 	ft.RequireAuth(true)
 
 	// ACT
-	req, err := http.NewRequest("GET", ft.URL+"/.json?auth="+ft.Secret, nil)
+	req, err := http.NewRequest("GET", ft.URL+"/.json", nil)
 	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+ft.Secret)
 
 	resp := httptest.NewRecorder()
 	ft.serveHTTP(resp, req)
@@ -205,33 +147,16 @@ func TestServeHTTPUnauthorized(t *testing.T) {
 	assert.Equal(t, invalidAuth, resp.Body.Bytes())
 }
 
-func TestServeHTTPAuthJWT(t *testing.T) {
-	// ARRANGE
-	ft := New()
-	ft.Secret = "foo"
-	ft.Start()
-	ft.RequireAuth(true)
-
-	// ACT
-	req, err := http.NewRequest("GET", ft.URL+"/.json?auth=eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJ2IjowLCJkIjp7InVpZCI6IjEifSwiaWF0IjoxNDM3MTM5NTM5fQ.G7j81dhdMrJquGcy8bfKmOZOizzFBYRUMBK4CQIzX_E", nil)
-	require.NoError(t, err)
-
-	resp := httptest.NewRecorder()
-	ft.serveHTTP(resp, req)
-
-	// ASSERT
-	assert.Equal(t, http.StatusOK, resp.Code)
-}
-
-func TestServeHTTPUnauthorizedJWT(t *testing.T) {
+func TestServeHTTPUnauthorizedBadToken(t *testing.T) {
 	// ARRANGE
 	ft := New()
 	ft.Start()
 	ft.RequireAuth(true)
 
 	// ACT
-	req, err := http.NewRequest("GET", ft.URL+"/.json?auth=bad.jwt.nope", nil)
+	req, err := http.NewRequest("GET", ft.URL+"/.json", nil)
 	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer wrong-token")
 	resp := httptest.NewRecorder()
 	ft.serveHTTP(resp, req)
 
@@ -278,7 +203,7 @@ func TestServerSet(t *testing.T) {
 
 	// ASSERT
 	assert.Equal(t, http.StatusOK, resp.Code)
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, body, string(respBody))
 }
@@ -326,7 +251,7 @@ func TestServerUpdate(t *testing.T) {
 
 	// ASSERT
 	assert.Equal(t, http.StatusOK, resp.Code)
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, newVal, string(respBody))
 }

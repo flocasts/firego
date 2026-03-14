@@ -15,6 +15,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/oauth2"
+	"google.golang.org/api/option"
+	htransport "google.golang.org/api/transport/http"
+)
+
+// Firebase OAuth2 scopes required for Realtime Database access.
+const (
+	ScopeFirebaseDatabase = "https://www.googleapis.com/auth/firebase.database"
+	ScopeUserinfoEmail    = "https://www.googleapis.com/auth/userinfo.email"
 )
 
 // TimeoutDuration is the length of time any request will have to establish
@@ -44,7 +54,6 @@ func (e *FirebaseError) Error() string {
 
 // query parameter constants
 const (
-	authParam         = "auth"
 	shallowParam      = "shallow"
 	formatParam       = "format"
 	formatVal         = "export"
@@ -76,9 +85,16 @@ type Firebase struct {
 	stopWatching   chan struct{}
 }
 
-// New creates a new Firebase reference,
-// if client is nil, http.DefaultClient is used.
-func New(url string, client *http.Client) *Firebase {
+// New creates a new Firebase reference.
+//
+// When called with no options, a default HTTP client is used.
+// To authenticate with Firebase, pass option.ClientOption values
+// such as option.WithCredentialsFile or option.WithTokenSource:
+//
+//	fb, err := firego.New("https://my-app.firebaseio.com",
+//	    option.WithCredentialsFile("service_account.json"),
+//	)
+func New(url string, opts ...option.ClientOption) (*Firebase, error) {
 	fb := &Firebase{
 		url:            sanitizeURL(url),
 		params:         _url.Values{},
@@ -87,7 +103,8 @@ func New(url string, client *http.Client) *Firebase {
 		watchHeartbeat: defaultHeartbeat,
 		eventFuncs:     map[string]chan struct{}{},
 	}
-	if client == nil {
+
+	if len(opts) == 0 {
 		var tr *http.Transport
 		tr = &http.Transport{
 			DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -98,29 +115,32 @@ func New(url string, client *http.Client) *Firebase {
 				return c, err
 			},
 		}
-
-		client = &http.Client{
+		fb.client = &http.Client{
 			Transport:     tr,
 			CheckRedirect: redirectPreserveHeaders,
 		}
+		return fb, nil
 	}
 
+	// Prepend Firebase scopes so callers don't have to specify them.
+	allOpts := []option.ClientOption{
+		option.WithScopes(ScopeFirebaseDatabase, ScopeUserinfoEmail),
+	}
+	allOpts = append(allOpts, opts...)
+
+	client, _, err := htransport.NewClient(context.Background(), allOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("firego: failed to create authenticated client: %w", err)
+	}
+	client.CheckRedirect = redirectPreserveHeaders
 	fb.client = client
-	return fb
+	return fb, nil
 }
 
-// Auth sets the custom Firebase token used to authenticate to Firebase.
-func (fb *Firebase) Auth(token string) {
-	fb.paramsMtx.Lock()
-	fb.params.Set(authParam, token)
-	fb.paramsMtx.Unlock()
-}
-
-// Unauth removes the current token being used to authenticate to Firebase.
-func (fb *Firebase) Unauth() {
-	fb.paramsMtx.Lock()
-	fb.params.Del(authParam)
-	fb.paramsMtx.Unlock()
+// NewWithTokenSource creates a new Firebase reference authenticated with the
+// given oauth2.TokenSource. This is a convenience wrapper around New.
+func NewWithTokenSource(url string, ts oauth2.TokenSource) (*Firebase, error) {
+	return New(url, option.WithTokenSource(ts))
 }
 
 // Ref returns a copy of an existing Firebase reference with a new path.

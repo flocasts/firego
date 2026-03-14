@@ -5,22 +5,42 @@ import (
 	"time"
 
 	"github.com/flocasts/firego"
+	"google.golang.org/api/option"
 )
 
-func ExampleFirebase_Auth() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
-	fb.Auth("my-token")
+func ExampleNew() {
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = fb
+}
+
+func ExampleNew_withCredentials() {
+	fb, err := firego.New("https://someapp.firebaseio.com",
+		option.WithCredentialsFile("service_account.json"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = fb
 }
 
 func ExampleFirebase_Child() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	childFB := fb.Child("some/child/path")
 
 	log.Printf("My new ref %s\n", childFB)
 }
 
 func ExampleFirebase_Shallow() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Set value
 	fb.Shallow(true)
 	// Remove query parameter
@@ -28,7 +48,10 @@ func ExampleFirebase_Shallow() {
 }
 
 func ExampleFirebase_IncludePriority() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Set value
 	fb.IncludePriority(true)
 	// Remove query parameter
@@ -36,7 +59,10 @@ func ExampleFirebase_IncludePriority() {
 }
 
 func ExampleFirebase_StartAt() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Set value
 	fb = fb.StartAt("a")
 	// Remove query parameter
@@ -44,7 +70,10 @@ func ExampleFirebase_StartAt() {
 }
 
 func ExampleFirebase_EndAt() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Set value
 	fb = fb.EndAt("a")
 	// Remove query parameter
@@ -52,7 +81,10 @@ func ExampleFirebase_EndAt() {
 }
 
 func ExampleFirebase_OrderBy() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Set value
 	fb = fb.OrderBy("a")
 	// Remove query parameter
@@ -60,7 +92,10 @@ func ExampleFirebase_OrderBy() {
 }
 
 func ExampleFirebase_LimitToFirst() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Set value
 	fb = fb.LimitToFirst(5)
 	// Remove query parameter
@@ -68,7 +103,10 @@ func ExampleFirebase_LimitToFirst() {
 }
 
 func ExampleFirebase_LimitToLast() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	// Set value
 	fb = fb.LimitToLast(8)
 	// Remove query parameter
@@ -76,7 +114,10 @@ func ExampleFirebase_LimitToLast() {
 }
 
 func ExampleFirebase_Push() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 	newRef, err := fb.Push("my-value")
 	if err != nil {
 		log.Fatal(err)
@@ -86,14 +127,20 @@ func ExampleFirebase_Push() {
 }
 
 func ExampleFirebase_Remove() {
-	fb := firego.New("https://someapp.firebaseio.com/some/value", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com/some/value")
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := fb.Remove(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func ExampleFirebase_Set() {
-	fb := firego.New("https://someapp.firebaseio.com", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	v := map[string]interface{}{
 		"foo": "bar",
@@ -106,14 +153,20 @@ func ExampleFirebase_Set() {
 }
 
 func ExampleFirebase_Update() {
-	fb := firego.New("https://someapp.firebaseio.com/some/value", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com/some/value")
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := fb.Update("new-value"); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func ExampleFirebase_Value() {
-	fb := firego.New("https://someapp.firebaseio.com/some/value", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com/some/value")
+	if err != nil {
+		log.Fatal(err)
+	}
 	var v interface{}
 	if err := fb.Value(v); err != nil {
 		log.Fatal(err)
@@ -123,7 +176,10 @@ func ExampleFirebase_Value() {
 }
 
 func ExampleFirebase_Watch() {
-	fb := firego.New("https://someapp.firebaseio.com/some/value", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com/some/value")
+	if err != nil {
+		log.Fatal(err)
+	}
 	notifications := make(chan firego.Event)
 	if err := fb.Watch(notifications); err != nil {
 		log.Fatal(err)
@@ -141,7 +197,10 @@ func ExampleFirebase_Watch() {
 }
 
 func ExampleFirebase_StopWatching() {
-	fb := firego.New("https://someapp.firebaseio.com/some/value", nil)
+	fb, err := firego.New("https://someapp.firebaseio.com/some/value")
+	if err != nil {
+		log.Fatal(err)
+	}
 	notifications := make(chan firego.Event)
 	if err := fb.Watch(notifications); err != nil {
 		log.Fatal(err)

@@ -69,7 +69,7 @@ func TestTransaction(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	err := fb.Transaction(func(currentSnapshot interface{}) (interface{}, error) {
 		counter, ok := currentSnapshot.(float64)
 		require.True(t, ok, "counter is not of type float64")

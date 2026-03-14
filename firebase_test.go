@@ -10,12 +10,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/option"
+
 	"github.com/flocasts/firego/firetest"
 )
 
 const URL = "https://somefirebaseapp.firebaseIO.com"
-
-const authToken = "token"
 
 type TestServer struct {
 	*httptest.Server
@@ -31,6 +32,13 @@ func newTestServer(response string) *TestServer {
 	return ts
 }
 
+func mustNew(t *testing.T, url string, opts ...option.ClientOption) *Firebase {
+	t.Helper()
+	fb, err := New(url, opts...)
+	require.NoError(t, err)
+	return fb
+}
+
 func TestNew(t *testing.T) {
 	t.Parallel()
 	testURLs := []string{
@@ -41,7 +49,7 @@ func TestNew(t *testing.T) {
 	}
 
 	for _, url := range testURLs {
-		fb := New(url, nil)
+		fb := mustNew(t, url)
 		assert.Equal(t, URL, fb.url, "givenURL: %s", url)
 	}
 }
@@ -49,7 +57,7 @@ func TestNew(t *testing.T) {
 func TestNewWithProvidedHttpClient(t *testing.T) {
 	t.Parallel()
 
-	var client = http.DefaultClient
+	client := http.DefaultClient
 	testURLs := []string{
 		URL,
 		URL + "/",
@@ -58,9 +66,8 @@ func TestNewWithProvidedHttpClient(t *testing.T) {
 	}
 
 	for _, url := range testURLs {
-		fb := New(url, client)
+		fb := mustNew(t, url, option.WithHTTPClient(client))
 		assert.Equal(t, URL, fb.url, "givenURL: %s", url)
-		assert.Equal(t, client, fb.client)
 	}
 }
 
@@ -71,25 +78,24 @@ func TestAuth(t *testing.T) {
 	defer server.Close()
 
 	server.RequireAuth(true)
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL, option.WithTokenSource(
+		oauth2.StaticTokenSource(&oauth2.Token{AccessToken: server.Secret}),
+	))
 
-	fb.Auth(server.Secret)
 	var v interface{}
 	err := fb.Value(&v)
 	assert.NoError(t, err)
 }
 
-func TestUnauth(t *testing.T) {
+func TestUnauthenticated(t *testing.T) {
 	t.Parallel()
 	server := firetest.New()
 	server.Start()
 	defer server.Close()
 
 	server.RequireAuth(true)
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 
-	fb.params.Add("auth", server.Secret)
-	fb.Unauth()
 	err := fb.Value("")
 	assert.Error(t, err)
 }
@@ -103,18 +109,13 @@ func TestPush(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	childRef, err := fb.Push(payload)
 	assert.NoError(t, err)
 
 	path := strings.TrimPrefix(childRef.String(), server.URL+"/")
 	v := server.Get(path)
 	assert.Equal(t, payload, v)
-
-	childRef.Auth(server.Secret)
-	var m map[string]interface{}
-	require.NoError(t, childRef.Value(&m))
-	assert.Equal(t, payload, m, childRef.String())
 }
 
 func TestRemove(t *testing.T) {
@@ -125,7 +126,7 @@ func TestRemove(t *testing.T) {
 
 	server.Set("", true)
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	err := fb.Remove()
 	assert.NoError(t, err)
 
@@ -142,7 +143,7 @@ func TestSet(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	err := fb.Set(payload)
 	assert.NoError(t, err)
 
@@ -159,7 +160,7 @@ func TestUpdate(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	err := fb.Update(payload)
 	assert.NoError(t, err)
 
@@ -176,7 +177,7 @@ func TestValue(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 
 	server.Set("", response)
 
@@ -189,7 +190,7 @@ func TestValue(t *testing.T) {
 func TestChild(t *testing.T) {
 	t.Parallel()
 	var (
-		parent    = New(URL, nil)
+		parent    = mustNew(t, URL)
 		childNode = "node"
 		child     = parent.Child(childNode)
 	)
@@ -199,7 +200,7 @@ func TestChild(t *testing.T) {
 
 func TestChild_Issue26(t *testing.T) {
 	t.Parallel()
-	parent := New(URL, nil)
+	parent := mustNew(t, URL)
 	child1 := parent.Child("one")
 	child2 := child1.Child("two")
 
@@ -216,7 +217,7 @@ func TestTimeoutDuration_Headers(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fb = New(server.URL, nil)
+	fb = mustNew(t, server.URL)
 	fb.clientTimeout = time.Millisecond
 	err := fb.Value("")
 	<-done
@@ -231,7 +232,7 @@ func TestTimeoutDuration_Headers(t *testing.T) {
 }
 
 func TestTimeoutDuration_Dial(t *testing.T) {
-	fb := New("http://dialtimeouterr.or/", nil)
+	fb := mustNew(t, "http://dialtimeouterr.or/")
 	fb.clientTimeout = time.Millisecond
 
 	err := fb.Value("")

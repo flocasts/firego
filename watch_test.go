@@ -22,7 +22,7 @@ func TestWatch(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 
 	notifications := make(chan Event)
 	err := fb.Watch(notifications)
@@ -71,7 +71,7 @@ func TestWatchRedirectPreservesHeader(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	notifications := make(chan Event)
 
 	err := fb.Watch(notifications)
@@ -95,7 +95,7 @@ func TestWatchHeartbeatTimeout(t *testing.T) {
 	defer server.Close()
 
 	notifications := make(chan Event)
-	fb = New(server.URL, nil)
+	fb = mustNew(t, server.URL)
 	fb.watchHeartbeat = 50 * time.Millisecond
 
 	if err := fb.Watch(notifications); err != nil {
@@ -129,7 +129,7 @@ func TestWatchError(t *testing.T) {
 
 	var (
 		notifications = make(chan Event)
-		fb            = New(server.URL, nil)
+		fb            = mustNew(t, server.URL)
 	)
 	defer server.Close()
 
@@ -163,7 +163,7 @@ func TestWatchAuthRevoked(t *testing.T) {
 
 	var (
 		notifications = make(chan Event)
-		fb            = New(server.URL, nil)
+		fb            = mustNew(t, server.URL)
 	)
 
 	if err := fb.Watch(notifications); err != nil {
@@ -193,7 +193,7 @@ func TestWatch_Issue66(t *testing.T) {
 	defer server.Close()
 
 	// create an initial sse connection
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 	notifications := make(chan Event)
 	err := fb.Watch(notifications)
 	require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestStopWatch(t *testing.T) {
 	server.Start()
 	defer server.Close()
 
-	fb := New(server.URL, nil)
+	fb := mustNew(t, server.URL)
 
 	notifications := make(chan Event)
 	err := fb.Watch(notifications)
