@@ -1,17 +1,15 @@
 # Firego
 
-## Deprecated in favor of [firebase/firebase-admin-go](https://github.com/firebase/firebase-admin-go).
-
----
-[![Build Status](https://travis-ci.org/zabawaba99/firego.svg?branch=v1)](https://travis-ci.org/zabawaba99/firego) [![Coverage Status](https://coveralls.io/repos/github/zabawaba99/firego/badge.svg?branch=v1)](https://coveralls.io/github/zabawaba99/firego?branch=v1)
----
+[![CI](https://github.com/flocasts/firego/actions/workflows/ci.yaml/badge.svg)](https://github.com/flocasts/firego/actions/workflows/ci.yaml)
 
 A Firebase client written in Go
+
+> **Note:** This is a FloSports fork of [zabawaba99/firego](https://github.com/zabawaba99/firego).
 
 ## Installation
 
 ```bash
-go get -u gopkg.in/zabawaba99/firego.v1
+go get github.com/flocasts/firego
 ```
 
 ## Usage
@@ -19,7 +17,7 @@ go get -u gopkg.in/zabawaba99/firego.v1
 Import firego
 
 ```go
-import "gopkg.in/zabawaba99/firego.v1"
+import "github.com/flocasts/firego"
 ```
 
 Create a new firego reference
@@ -47,10 +45,10 @@ firego.TimeoutDuration = time.Minute
 ### Authentication
 
 You can authenticate with your `service_account.json` file by using the
-`golang.org/x/oauth2` package (thanks @m00sey for the snippet)
+`golang.org/x/oauth2` package
 
 ```go
-d, err := ioutil.ReadFile("our_service_account.json")
+d, err := os.ReadFile("our_service_account.json")
 if err != nil {
     return nil, err
 }
@@ -71,8 +69,6 @@ fb := firego.New("https://you.firebaseio.com", conf.Client(oauth2.NoContext))
 f.Auth("some-token-that-was-created-for-me")
 f.Unauth()
 ```
-
-Visit [Fireauth](https://github.com/zabawaba99/fireauth) if you'd like to generate your own auth tokens
 
 ### Get Value
 
@@ -155,6 +151,7 @@ for event := range notifications {
 }
 fmt.Printf("Notifications have stopped")
 ```
+
 ### Change reference
 
 You can use a reference to save or read data from a specified reference
@@ -169,26 +166,16 @@ v := map[string]string{"id":userID}
 if err := usersRef.Set(v); err != nil {
   log.Fatal(err)
 }
-
 ```
 
-Check the [GoDocs](http://godoc.org/gopkg.in/zabawaba99/firego.v1) or
-[Firebase Documentation](https://www.firebase.com/docs/rest/) for more details
+Check the [Firebase Documentation](https://www.firebase.com/docs/rest/) for more details
 
 ## Running Tests
 
-In order to run the tests you need to `go get -t ./...`
-first to go-get the test dependencies.
+```bash
+go test -race ./...
+```
 
-## Issues Management
+## Releases
 
-Feel free to open an issue if you come across any bugs or
-if you'd like to request a new feature.
-
-## Contributing
-
-1. Fork it
-2. Create your feature branch (`git checkout -b new-feature`)
-3. Commit your changes (`git commit -am 'Some cool reflection'`)
-4. Push to the branch (`git push origin new-feature`)
-5. Create new Pull Request
+This project uses semver tags (`v*.*.*`). Pushing a tag triggers a GitHub Actions workflow that creates a GitHub Release.

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/zabawaba99/firego/sync"
+	"github.com/flocasts/firego/sync"
 )
 
 func TestRequireAuth(t *testing.T) {

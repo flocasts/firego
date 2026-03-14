@@ -68,7 +68,7 @@ func NewNode(key string, data interface{}) *Node {
 	case reflect.String, reflect.Bool, reflect.Interface:
 		n.Value = val.Interface()
 	default:
-		fmt.Printf("Unsupported type %s(%#v)If you see this log please report an issue on https://github.com/zabawaba99/firego", data, data)
+		fmt.Printf("Unsupported type %s(%#v)If you see this log please report an issue on https://github.com/flocasts/firego", data, data)
 	}
 
 	return n

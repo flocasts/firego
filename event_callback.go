@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zabawaba99/firego/sync"
+	"github.com/flocasts/firego/sync"
 )
 
 // ChildEventFunc is the type of function that is called for every
@@ -233,8 +233,8 @@ func (fb *Firebase) addEventFunc(fn ChildEventFunc, handleSSE handleSSEFunc) err
 
 	db := sync.NewDB()
 	prevKey := new(string)
-	var run func(notifications chan Event, backoff time.Duration)
-	run = func(notifications chan Event, backoff time.Duration) {
+	var run func(notifications chan Event, attempt int)
+	run = func(notifications chan Event, attempt int) {
 		fb.eventMtx.Lock()
 		if _, ok := fb.eventFuncs[key]; !ok {
 			fb.eventMtx.Unlock()
@@ -248,8 +248,8 @@ func (fb *Firebase) addEventFunc(fn ChildEventFunc, handleSSE handleSSEFunc) err
 			return
 		}
 
-		// give firebase some time
-		backoff *= 2
+		// exponential backoff with cap at 30s
+		backoff := backoffDuration(attempt)
 		time.Sleep(backoff)
 
 		// try and reconnect
@@ -261,13 +261,15 @@ func (fb *Firebase) addEventFunc(fn ChildEventFunc, handleSSE handleSSEFunc) err
 				return
 			}
 			fb.eventMtx.Unlock()
+			attempt++
+			backoff = backoffDuration(attempt)
 		}
 
 		// give this another shot
-		run(notifications, backoff)
+		run(notifications, attempt+1)
 	}
 
-	go run(notifications, fb.watchHeartbeat)
+	go run(notifications, 0)
 	return nil
 }
 

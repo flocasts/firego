@@ -6,7 +6,7 @@ import (
 	_sync "sync"
 	"time"
 
-	"github.com/zabawaba99/firego/sync"
+	"github.com/flocasts/firego/sync"
 )
 
 type event struct {

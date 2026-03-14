@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zabawaba99/firego/sync"
+	"github.com/flocasts/firego/sync"
 )
 
 func TestDataSnapshotKey(t *testing.T) {

@@ -5,10 +5,10 @@ package firego
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	_url "net/url"
@@ -28,6 +28,18 @@ var defaultRedirectLimit = 30
 // exceeds the TimeoutDuration configured.
 type ErrTimeout struct {
 	error
+}
+
+// FirebaseError is returned when Firebase responds with a non-2xx status code.
+// It exposes both the HTTP status code and the response body so callers can
+// programmatically inspect the failure.
+type FirebaseError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e *FirebaseError) Error() string {
+	return fmt.Sprintf("firebase: http error %d: %s", e.StatusCode, e.Body)
 }
 
 // query parameter constants
@@ -71,16 +83,17 @@ func New(url string, client *http.Client) *Firebase {
 		url:            sanitizeURL(url),
 		params:         _url.Values{},
 		clientTimeout:  TimeoutDuration,
-		stopWatching:   make(chan struct{}),
+		stopWatching:   make(chan struct{}, 1),
 		watchHeartbeat: defaultHeartbeat,
 		eventFuncs:     map[string]chan struct{}{},
 	}
 	if client == nil {
 		var tr *http.Transport
 		tr = &http.Transport{
-			Dial: func(network, address string) (net.Conn, error) {
+			DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 				start := time.Now()
-				c, err := net.DialTimeout(network, address, fb.clientTimeout)
+				dialer := net.Dialer{Timeout: fb.clientTimeout}
+				c, err := dialer.DialContext(ctx, network, address)
 				tr.ResponseHeaderTimeout = fb.clientTimeout - time.Since(start)
 				return c, err
 			},
@@ -133,16 +146,16 @@ func (fb *Firebase) URL() string {
 
 // Push creates a reference to an auto-generated child location.
 func (fb *Firebase) Push(v interface{}) (*Firebase, error) {
-	bytes, err := json.Marshal(v)
+	data, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
-	_, bytes, err = fb.doRequest("POST", bytes)
+	_, data, err = fb.doRequest("POST", data)
 	if err != nil {
 		return nil, err
 	}
 	var m map[string]string
-	if err := json.Unmarshal(bytes, &m); err != nil {
+	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, err
 	}
 	newRef := fb.copy()
@@ -161,31 +174,31 @@ func (fb *Firebase) Remove() error {
 
 // Set the value of the Firebase reference.
 func (fb *Firebase) Set(v interface{}) error {
-	bytes, err := json.Marshal(v)
+	data, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	_, _, err = fb.doRequest("PUT", bytes)
+	_, _, err = fb.doRequest("PUT", data)
 	return err
 }
 
 // Update the specific child with the given value.
 func (fb *Firebase) Update(v interface{}) error {
-	bytes, err := json.Marshal(v)
+	data, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
-	_, _, err = fb.doRequest("PATCH", bytes)
+	_, _, err = fb.doRequest("PATCH", data)
 	return err
 }
 
 // Value gets the value of the Firebase reference.
 func (fb *Firebase) Value(v interface{}) error {
-	_, bytes, err := fb.doRequest("GET", nil)
+	_, respBody, err := fb.doRequest("GET", nil)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(bytes, v)
+	return json.Unmarshal(respBody, v)
 }
 
 // String returns the string representation of the
@@ -215,7 +228,7 @@ func (fb *Firebase) copy() *Firebase {
 		params:         _url.Values{},
 		client:         fb.client,
 		clientTimeout:  fb.clientTimeout,
-		stopWatching:   make(chan struct{}),
+		stopWatching:   make(chan struct{}, 1),
 		watchHeartbeat: defaultHeartbeat,
 		eventFuncs:     map[string]chan struct{}{},
 	}
@@ -269,7 +282,18 @@ func withHeader(key, value string) func(*http.Request) {
 }
 
 func (fb *Firebase) doRequest(method string, body []byte, options ...func(*http.Request)) (http.Header, []byte, error) {
-	req, err := http.NewRequest(method, fb.String(), bytes.NewReader(body))
+	return fb.doRequestWithContext(context.Background(), method, body, options...)
+}
+
+func (fb *Firebase) doRequestWithContext(ctx context.Context, method string, body []byte, options ...func(*http.Request)) (http.Header, []byte, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	} else {
+		bodyReader = http.NoBody
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, fb.String(), bodyReader)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -306,12 +330,15 @@ func (fb *Firebase) doRequest(method string, body []byte, options ...func(*http.
 	}
 
 	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, err
 	}
-	if resp.StatusCode/200 != 1 {
-		return resp.Header, respBody, errors.New(string(respBody))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return resp.Header, respBody, &FirebaseError{
+			StatusCode: resp.StatusCode,
+			Body:       string(respBody),
+		}
 	}
 	return resp.Header, respBody, nil
 }

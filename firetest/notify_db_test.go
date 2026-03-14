@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/zabawaba99/firego/sync"
+	"github.com/flocasts/firego/sync"
 )
 
 func TestNotifyDBAdd(t *testing.T) {

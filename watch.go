@@ -3,10 +3,13 @@ package firego
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -58,8 +61,11 @@ func (fb *Firebase) StopWatching() {
 	if fb.watching {
 		// flip the bit back to not watching
 		fb.watching = false
-		// signal connection to terminal
-		fb.stopWatching <- struct{}{}
+		// signal connection to terminate
+		select {
+		case fb.stopWatching <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -76,11 +82,29 @@ func (fb *Firebase) setWatching(v bool) {
 // second call to this function without a call to fb.StopWatching
 // will close the channel given and return nil immediately.
 func (fb *Firebase) Watch(notifications chan Event) error {
+	return fb.WatchWithContext(context.Background(), notifications)
+}
+
+// WatchWithContext listens for changes on a firebase instance and
+// passes over to the given chan. The provided context can be used
+// for cancellation and deadline propagation.
+//
+// Only one connection can be established at a time. The
+// second call to this function without a call to fb.StopWatching
+// will close the channel given and return nil immediately.
+func (fb *Firebase) WatchWithContext(ctx context.Context, notifications chan Event) error {
 	fb.watchMtx.Lock()
 	if fb.watching {
 		fb.watchMtx.Unlock()
 		close(notifications)
 		return nil
+	}
+	// Drain any stale stop signal from a previous watch cycle
+	// that ended on its own (e.g. heartbeat timeout) while a
+	// concurrent StopWatching call raced in.
+	select {
+	case <-fb.stopWatching:
+	default:
 	}
 	fb.watching = true
 	fb.watchMtx.Unlock()
@@ -91,19 +115,39 @@ func (fb *Firebase) Watch(notifications chan Event) error {
 		return err
 	}
 
-	var closedManually bool
+	var closedManually atomic.Bool
+
+	// done is closed when the event-forwarding goroutine exits,
+	// allowing the stop-listener goroutine to clean up.
+	done := make(chan struct{})
+
+	var stopOnce sync.Once
+	closeStop := func() {
+		stopOnce.Do(func() { close(stop) })
+	}
 
 	go func() {
-		<-fb.stopWatching
-		closedManually = true
-		stop <- struct{}{}
+		select {
+		case <-fb.stopWatching:
+			closedManually.Store(true)
+			closeStop()
+		case <-ctx.Done():
+			closedManually.Store(true)
+			closeStop()
+		case <-done:
+			closeStop()
+		}
 	}()
 
 	go func() {
-		defer close(notifications)
+		defer func() {
+			close(notifications)
+			fb.setWatching(false)
+			close(done)
+		}()
 
 		for event := range events {
-			if closedManually {
+			if closedManually.Load() {
 				return
 			}
 
@@ -125,14 +169,14 @@ func readLine(rdr *bufio.Reader, prefix string) ([]byte, error) {
 	if len(prefix) == 0 {
 		line = bytes.TrimSpace(line)
 		if len(line) != 0 {
-			return nil, errors.New("expected empty line")
+			return nil, fmt.Errorf("expected empty line, got: %q", line)
 		}
 		return line, nil
 	}
 
 	// check line has event prefix
 	if !bytes.HasPrefix(line, []byte(prefix)) {
-		return nil, errors.New("missing prefix")
+		return nil, fmt.Errorf("missing prefix %q, got: %q", prefix, line)
 	}
 
 	// trim space
@@ -158,19 +202,38 @@ func (fb *Firebase) watch(stop chan struct{}) (chan Event, error) {
 
 	notifications := make(chan Event)
 
+	// parserDone is closed when the parser goroutine exits,
+	// ensuring the stop-listener and heartbeat goroutines
+	// can always clean up regardless of how the watch ends.
+	parserDone := make(chan struct{})
+
+	var closeOnce sync.Once
+	closeBody := func() {
+		closeOnce.Do(func() {
+			resp.Body.Close()
+		})
+	}
+
 	go func() {
-		<-stop
-		resp.Body.Close()
+		select {
+		case <-stop:
+		case <-parserDone:
+		}
+		closeBody()
 	}()
 
 	heartbeat := make(chan struct{})
 	go func() {
 		for {
 			select {
+			case <-stop:
+				return
+			case <-parserDone:
+				return
 			case <-heartbeat:
 				// do nothing
 			case <-time.After(fb.watchHeartbeat):
-				resp.Body.Close()
+				closeBody()
 				return
 			}
 		}
@@ -179,8 +242,9 @@ func (fb *Firebase) watch(stop chan struct{}) (chan Event, error) {
 	// start parsing response body
 	go func() {
 		defer func() {
-			resp.Body.Close()
+			closeBody()
 			close(notifications)
+			close(parserDone)
 		}()
 
 		// build scanner for response body
@@ -261,4 +325,20 @@ func (fb *Firebase) watch(stop chan struct{}) (chan Event, error) {
 		}
 	}()
 	return notifications, nil
+}
+
+const (
+	initialBackoff = 500 * time.Millisecond
+	maxBackoff     = 30 * time.Second
+)
+
+func backoffDuration(attempt int) time.Duration {
+	if attempt > 30 {
+		return maxBackoff
+	}
+	d := initialBackoff * time.Duration(1<<uint(attempt))
+	if d > maxBackoff {
+		return maxBackoff
+	}
+	return d
 }

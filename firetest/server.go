@@ -1,6 +1,5 @@
 /*
 Package firetest provides utilities for Firebase testing
-
 */
 package firetest
 
@@ -11,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -278,10 +276,10 @@ func (ft *Firetest) sse(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "event: put\ndata: %s\n\n", s)
 	f.Flush()
 
-	httpCloser := w.(http.CloseNotifier).CloseNotify()
+	ctx := req.Context()
 	for {
 		select {
-		case <-httpCloser:
+		case <-ctx.Done():
 			return
 		case <-time.After(30 * time.Second):
 			fmt.Fprintf(w, "event: keep-alive\ndata: null\n\n")
@@ -319,7 +317,7 @@ func sanitizePath(p string) string {
 }
 
 func unmarshal(w http.ResponseWriter, r io.Reader) ([]byte, interface{}, bool) {
-	body, err := ioutil.ReadAll(r)
+	body, err := io.ReadAll(r)
 	if err != nil || len(body) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(missingBody)
