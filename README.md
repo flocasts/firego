@@ -49,6 +49,15 @@ fb, err := firego.New("https://your-app.firebaseio.com",
 )
 ```
 
+Or pass the JSON payload directly without a file:
+
+```go
+credJSON := []byte(`{"type": "service_account", ...}`)
+fb, err := firego.New("https://your-app.firebaseio.com",
+    option.WithCredentialsJSON(credJSON),
+)
+```
+
 You can also use Application Default Credentials (auto-discovered from
 the `GOOGLE_APPLICATION_CREDENTIALS` environment variable):
 

@@ -10,8 +10,7 @@ Firebase test server meant for use in unit tests
   * PUT
   * PATCH
   * DELETE
-* [Query parameters](https://www.firebase.com/docs/rest/api/#section-query-parameters):
-  * auth
+* Authentication via `Authorization: Bearer <token>` header
 * [Streaming](https://www.firebase.com/docs/rest/api/#section-streaming)
 
 ### Not Supported

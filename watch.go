@@ -22,7 +22,7 @@ const (
 	EventTypePatch = "patch"
 	// EventTypeError is the event type sent when an unknown error is encountered.
 	EventTypeError = "event_error"
-	// EventTypeAuthRevoked is the event type sent when the supplied auth parameter
+	// EventTypeAuthRevoked is the event type sent when the supplied auth token
 	// is no longer valid.
 	EventTypeAuthRevoked = "auth_revoked"
 
@@ -315,8 +315,8 @@ func (fb *Firebase) watch(stop chan struct{}) (chan Event, error) {
 				notifications <- event
 				return
 			case EventTypeAuthRevoked:
-				// The data for this event is a string indicating that a the credential has expired
-				// This event will be sent when the supplied auth parameter is no longer valid
+				// The data for this event is a string indicating that the credential has expired
+				// This event will be sent when the supplied auth token is no longer valid
 				notifications <- event
 				return
 			case eventTypeRulesDebug:
